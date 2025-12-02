@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../utils/colors.dart';
 import '../utils/text_styles.dart';
+import '../utils/level_theme.dart';
+import '../utils/education_level.dart';
+import '../providers/level_provider.dart';
 import '../widgets/skeleton_loader.dart';
 import 'subject_selection_screen.dart';
 import 'junior/junior_courses_screen.dart';
@@ -44,9 +48,16 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final levelProvider = Provider.of<LevelProvider>(context);
+    final currentLevel = levelProvider.currentLevel ?? EducationLevel.junior;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LevelTheme.getBackgroundGradient(currentLevel),
+        ),
+        child: SafeArea(
         child: PageView(
           controller: _pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -63,7 +74,8 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      ),
+      bottomNavigationBar: _buildBottomNavBar(currentLevel),
     );
   }
 
@@ -97,8 +109,8 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6C5CE7), Color(0xFF00B894), Color(0xFFFF9F43), Color(0xFFE74C3C)],
+            gradient: LinearGradient(
+              colors: LevelTheme.getGradientColors(EducationLevel.junior),
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -203,21 +215,21 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
   }
 
   Widget _buildPlayBanner() {
+    final primaryColor = LevelTheme.getPrimaryColor(EducationLevel.junior);
+    final gradientColors = LevelTheme.getGradientColors(EducationLevel.junior);
+    
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF8B5CF6),
-            Color(0xFFA78BFA),
-          ],
+          colors: gradientColors,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withOpacity(0.3),
+            color: primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -253,12 +265,12 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
                       ),
                     ],
                   ),
-                  child: const Text(
+                  child: Text(
                     'Play now',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF8B5CF6),
+                      color: primaryColor,
                     ),
                   ),
                 ),
@@ -732,16 +744,21 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
     );
   }
 
-  Widget _buildBottomNavBar() {
+  Widget _buildBottomNavBar(String? currentLevel) {
+    final primaryColor = LevelTheme.getPrimaryColor(currentLevel);
     return Container(
       height: 80,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: LevelTheme.getGradientColors(currentLevel),
+        ),
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: primaryColor.withOpacity(0.3),
             blurRadius: 24,
             offset: const Offset(0, 10),
             spreadRadius: 0,
@@ -756,10 +773,10 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_rounded, Icons.home_outlined, 0, const Color(0xFF3B82F6)),
-              _buildNavItem(Icons.book_rounded, Icons.book_outlined, 1, const Color(0xFF8B5CF6)),
-              _buildNavItem(Icons.auto_awesome_rounded, Icons.auto_awesome_outlined, 2, const Color(0xFFF59E0B)),
-              _buildNavItem(Icons.person_rounded, Icons.person_outline_rounded, 3, const Color(0xFFEC4899)),
+              _buildNavItem(Icons.home_rounded, Icons.home_outlined, 0, primaryColor),
+              _buildNavItem(Icons.book_rounded, Icons.book_outlined, 1, primaryColor),
+              _buildNavItem(Icons.auto_awesome_rounded, Icons.auto_awesome_outlined, 2, primaryColor),
+              _buildNavItem(Icons.person_rounded, Icons.person_outline_rounded, 3, primaryColor),
             ],
           ),
         ),

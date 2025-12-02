@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/colors.dart';
 import '../utils/text_styles.dart';
+import '../utils/level_theme.dart';
 import '../widgets/upcoming_class_card.dart';
 import '../widgets/live_class_card.dart';
 import '../widgets/test_exam_card.dart';
@@ -15,6 +16,7 @@ import '../widgets/skeleton_loader.dart';
 import '../widgets/learning_path_card.dart';
 import '../widgets/subject_card.dart';
 import '../utils/theme_provider.dart';
+import '../providers/level_provider.dart';
 import 'package:provider/provider.dart';
 import 'subject_selection_screen.dart';
 import 'profile_screen.dart';
@@ -61,9 +63,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final levelProvider = Provider.of<LevelProvider>(context);
+    final currentLevel = levelProvider.currentLevel;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LevelTheme.getBackgroundGradient(currentLevel),
+        ),
+        child: SafeArea(
         child: PageView(
           controller: _pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -80,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      ),
+      bottomNavigationBar: _buildBottomNavBar(context, currentLevel),
     );
   }
 
@@ -221,32 +231,71 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildHeader() {
+    final levelProvider = Provider.of<LevelProvider>(context);
+    final currentLevel = levelProvider.currentLevel;
+    final primaryColor = LevelTheme.getPrimaryColor(currentLevel);
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Welcome',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: LevelTheme.getGradientColors(currentLevel),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          LevelTheme.getLevelEmoji(currentLevel),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          LevelTheme.getLevelName(currentLevel),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Row(
-              children: [
-                Text(
-                  'Harry!',
-                  style: AppTextStyles.heading1,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  '👋',
-                  style: TextStyle(fontSize: 24),
-                ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    'Harry!',
+                    style: AppTextStyles.heading1,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '👋',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
@@ -772,16 +821,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildBottomNavBar() {
+  Widget _buildBottomNavBar(BuildContext context, String? currentLevel) {
+    final primaryColor = LevelTheme.getPrimaryColor(currentLevel);
     return Container(
       height: 70,
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.navBarBg,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: LevelTheme.getGradientColors(currentLevel),
+        ),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -795,10 +849,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_rounded, Icons.home_outlined, 0),
-              _buildNavItem(Icons.play_circle, Icons.play_circle_outline, 1),
-              _buildNavItem(Icons.calendar_today_rounded, Icons.calendar_today_outlined, 2),
-              _buildNavItem(Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 3),
+              _buildNavItem(Icons.home_rounded, Icons.home_outlined, 0, currentLevel),
+              _buildNavItem(Icons.play_circle, Icons.play_circle_outline, 1, currentLevel),
+              _buildNavItem(Icons.calendar_today_rounded, Icons.calendar_today_outlined, 2, currentLevel),
+              _buildNavItem(Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 3, currentLevel),
             ],
           ),
         ),
@@ -806,7 +860,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildNavItem(IconData selectedIcon, IconData unselectedIcon, int index) {
+  Widget _buildNavItem(IconData selectedIcon, IconData unselectedIcon, int index, String? currentLevel) {
     final isSelected = _selectedIndex == index;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
@@ -819,7 +873,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.white.withOpacity(0.12)
+              ? Colors.white.withOpacity(0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),

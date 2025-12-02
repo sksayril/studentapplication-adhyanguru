@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../utils/colors.dart';
+import '../../utils/level_theme.dart';
+import '../../utils/education_level.dart';
+import '../../providers/level_provider.dart';
 import '../../widgets/skeleton_loader.dart';
 
 class JuniorCoursesScreen extends StatelessWidget {
@@ -7,12 +11,20 @@ class JuniorCoursesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final levelProvider = Provider.of<LevelProvider>(context);
+    final currentLevel = levelProvider.currentLevel ?? EducationLevel.junior;
+    final primaryColor = LevelTheme.getPrimaryColor(currentLevel);
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LevelTheme.getBackgroundGradient(currentLevel),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           const SizedBox(height: 10),
           const Text(
             'My Courses',
@@ -38,7 +50,7 @@ class JuniorCoursesScreen extends StatelessWidget {
             subject: 'Science',
             progress: 0.65,
             lessons: '12 of 18 lessons',
-            color: const Color(0xFF8B5CF6),
+            color: primaryColor,
             backgroundColor: const Color(0xFFF3E8FF),
           ),
           const SizedBox(height: 16),
@@ -78,7 +90,8 @@ class JuniorCoursesScreen extends StatelessWidget {
             backgroundColor: const Color(0xFFFCE7F3),
           ),
           const SizedBox(height: 100),
-        ],
+          ],
+        ),
       ),
     );
   }
