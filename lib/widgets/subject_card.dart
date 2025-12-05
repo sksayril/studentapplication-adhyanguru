@@ -22,53 +22,63 @@ class SubjectCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        width: double.infinity, // Take full width of parent
+        height: double.infinity, // Take full height of parent (constrained by SizedBox)
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              backgroundColor,
-              backgroundColor.withOpacity(0.7),
-            ],
-          ),
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: backgroundColor.withOpacity(0.3),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 12,
               offset: const Offset(0, 4),
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: backgroundColor.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Emoji
+            // Icon/Emoji container
             Container(
-              padding: const EdgeInsets.all(16),
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                emoji,
-                style: const TextStyle(
-                  fontSize: 40,
+              child: Center(
+                child: Text(
+                  emoji,
+                  style: const TextStyle(
+                    fontSize: 36,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             // Subject name
             Text(
               subjectName,
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                letterSpacing: 0.2,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF1F2937),
+                letterSpacing: -0.2,
+                height: 1.3,
               ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

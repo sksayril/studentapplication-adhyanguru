@@ -129,6 +129,28 @@ class AuthService {
       }
     }
     
+    // Save class information
+    if (userData['class'] != null) {
+      final classData = userData['class'];
+      if (classData is Map) {
+        if (classData['id'] != null) {
+          await prefs.setString('class_id', classData['id'].toString());
+        }
+        if (classData['_id'] != null) {
+          await prefs.setString('class_id', classData['_id'].toString());
+        }
+        if (classData['name'] != null) {
+          await prefs.setString('class_name', classData['name'].toString());
+        }
+        if (classData['number'] != null) {
+          await prefs.setInt('class_number', classData['number'] as int);
+        }
+        if (classData['description'] != null) {
+          await prefs.setString('class_description', classData['description'].toString());
+        }
+      }
+    }
+    
     // Save role and other info
     if (userData['role'] != null) {
       await prefs.setString('user_role', userData['role'].toString());
@@ -161,6 +183,32 @@ class AuthService {
       };
     }
     return null;
+  }
+  
+  // Get class information
+  static Future<Map<String, dynamic>?> getClassInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final classId = prefs.getString('class_id');
+    final className = prefs.getString('class_name');
+    final classNumber = prefs.getInt('class_number');
+    final classDescription = prefs.getString('class_description');
+    
+    if (classId != null || className != null) {
+      return {
+        'id': classId ?? '',
+        '_id': classId ?? '',
+        'name': className ?? '',
+        'number': classNumber,
+        'description': classDescription ?? '',
+      };
+    }
+    return null;
+  }
+  
+  // Get class ID
+  static Future<String?> getClassId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('class_id');
   }
 }
 

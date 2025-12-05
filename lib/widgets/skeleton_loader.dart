@@ -242,3 +242,36 @@ class SkeletonText extends StatelessWidget {
   }
 }
 
+class SkeletonSubjectCard extends StatelessWidget {
+  const SkeletonSubjectCard({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Emoji placeholder
+          SkeletonLoader(
+            width: 72,
+            height: 72,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          const SizedBox(height: 16),
+          // Subject name placeholder
+          SkeletonLoader(
+            width: double.infinity,
+            height: 18,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

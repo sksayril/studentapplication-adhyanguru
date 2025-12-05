@@ -12,6 +12,7 @@ import 'services/auth_service.dart';
 import 'utils/theme_provider.dart';
 import 'providers/level_provider.dart';
 import 'utils/education_level.dart';
+import 'utils/app_navigator.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,7 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'Adhyan Guru',
           debugShowCheckedModeBanner: false,
           theme: themeProvider.lightTheme,

@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'ai_chat_screen.dart';
+import 'ai_gk_quiz_screen.dart';
+import 'ai_story_screen.dart';
+import 'ai_tutor_coming_soon_screen.dart';
+import 'ai_quiz_coming_soon_screen.dart';
+import 'ai_art_coming_soon_screen.dart';
 
 class JuniorAIFeaturesScreen extends StatelessWidget {
   const JuniorAIFeaturesScreen({Key? key}) : super(key: key);
@@ -44,6 +50,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AITutorComingSoonScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -57,6 +71,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF3B82F6), Color(0xFF60A5FA)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AIQuizComingSoonScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -75,6 +97,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AIGKQuizScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -88,6 +118,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF10B981), Color(0xFF34D399)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AIChatScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -106,6 +144,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AIStoryScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -119,6 +165,14 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFFEF4444), Color(0xFFF87171)],
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AIArtComingSoonScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -194,11 +248,10 @@ class JuniorAIFeaturesScreen extends StatelessWidget {
     required String title,
     required String description,
     required Gradient gradient,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: () {
-        // Handle tap
-      },
+      onTap: onTap,
       child: Container(
         height: 180,
         padding: const EdgeInsets.all(20),

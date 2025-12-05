@@ -5,7 +5,10 @@ import '../utils/text_styles.dart';
 import '../utils/navigation_helper.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../utils/app_navigator.dart';
+import '../widgets/skeleton_loader.dart';
 import 'login_screen.dart';
+import 'subscriptions_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -19,6 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _isLoggingOut = false;
   String? _errorMessage;
+  final ValueNotifier<bool> _logoutLoadingNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -159,6 +163,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void dispose() {
+    _logoutLoadingNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
@@ -171,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? _buildProfileSkeleton()
               : _errorMessage != null && _userData == null
                   ? _buildErrorState()
                   : RefreshIndicator(
@@ -244,6 +254,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileSkeleton() {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          _buildHeader(context),
+          const SizedBox(height: 20),
+          // Profile Image skeleton
+          SkeletonCircle(size: 120),
+          const SizedBox(height: 20),
+          // Name skeleton
+          SkeletonLoader(
+            width: 200,
+            height: 28,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 8),
+          // Student ID skeleton
+          SkeletonLoader(
+            width: 150,
+            height: 16,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 8),
+          // Email skeleton
+          SkeletonLoader(
+            width: 180,
+            height: 16,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 32),
+          // Info cards skeleton
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                SkeletonLoader(
+                  width: double.infinity,
+                  height: 80,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                const SizedBox(height: 16),
+                SkeletonLoader(
+                  width: double.infinity,
+                  height: 80,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                const SizedBox(height: 16),
+                SkeletonLoader(
+                  width: double.infinity,
+                  height: 80,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -904,6 +975,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           _buildMenuItem(
+            icon: Icons.card_membership,
+            title: 'Subscriptions',
+            subtitle: 'View and manage subscription plans',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SubscriptionsScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildMenuItem(
             icon: Icons.person_outline,
             title: 'Account Settings',
             subtitle: 'Manage your account',
@@ -1027,151 +1112,261 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: !_isLoggingOut,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Icon(Icons.logout, color: Colors.red, size: 24),
-                const SizedBox(width: 12),
-                const Text('Logout'),
-              ],
-            ),
-            content: _isLoggingOut
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Logging out...',
-                        style: AppTextStyles.bodyMedium,
-                      ),
-                    ],
-                  )
-                : Text(
-                    'Are you sure you want to logout?',
-                    style: AppTextStyles.bodyMedium,
-                  ),
-            actions: _isLoggingOut
-                ? []
-                : [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        setDialogState(() {
-                          _isLoggingOut = true;
-                        });
-                        Navigator.pop(context); // Close dialog
-                        await _handleLogout(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Logout'),
-                    ),
-                  ],
+      barrierDismissible: false, // Prevent dismissing during logout
+      builder: (dialogContext) => ValueListenableBuilder<bool>(
+        valueListenable: _logoutLoadingNotifier,
+        builder: (context, isLoggingOut, _) {
+          return _LogoutDialog(
+            isLoggingOut: isLoggingOut,
+            onLogout: () async {
+              // Call logout - dialog will be closed in _handleLogout
+              await _handleLogout(dialogContext, closeDialog: true);
+            },
+            onCancel: () {
+              if (!isLoggingOut) {
+                Navigator.pop(dialogContext);
+              }
+            },
           );
         },
       ),
     );
   }
 
-  Future<void> _handleLogout(BuildContext context) async {
+  Future<void> _handleLogout(BuildContext context, {bool closeDialog = true}) async {
     if (_isLoggingOut) return; // Prevent multiple calls
 
     setState(() {
       _isLoggingOut = true;
     });
+    _logoutLoadingNotifier.value = true;
+
+    bool apiLogoutSuccess = false;
+    String? apiMessage;
 
     try {
-      // Get token and call logout API
+      // Call logout API and wait for response
       final token = await AuthService.getToken();
       
       if (token != null && token.isNotEmpty) {
-        final response = await ApiService.logout(token);
-        
-        if (context.mounted) {
-          if (response['success'] == true) {
-            // Show success message briefly
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Logged out successfully'),
-                backgroundColor: AppColors.successGreen,
-                duration: Duration(seconds: 1),
-              ),
-            );
-          } else {
-            // Show error but still logout locally
-            final message = response['message'] ?? 'Logout failed';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(message),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
+        try {
+          final response = await ApiService.logout(token);
+          apiLogoutSuccess = response['success'] == true;
+          apiMessage = response['message'] as String?;
+          print('Logout API response: success=${apiLogoutSuccess}, message=$apiMessage');
+        } catch (e) {
+          print('Logout API error: $e');
+          apiLogoutSuccess = false;
+          apiMessage = 'API call failed: ${e.toString()}';
         }
-      }
-      
-      // Clear local auth data regardless of API response
-      await AuthService.logout();
-      
-      // Small delay to show message
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Navigate to login screen
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-        );
+      } else {
+        print('No token available for logout API call');
       }
     } catch (e) {
-      // Even if API call fails, clear local data and logout
+      print('Error calling logout API: $e');
+      apiLogoutSuccess = false;
+    }
+
+    // Always clear local auth data - this is the critical part
+    try {
       await AuthService.logout();
-      
-      if (context.mounted) {
+      print('Local auth data cleared successfully');
+    } catch (e) {
+      print('Error clearing local auth data: $e');
+    }
+
+    // Close dialog if it's open
+    if (closeDialog && context.mounted) {
+      try {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        print('Error closing dialog: $e');
+      }
+    }
+
+    // Small delay to ensure dialog is closed
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    // Show success message
+    if (context.mounted) {
+      try {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Logged out locally. ${e.toString()}'),
-            backgroundColor: Colors.orange,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    apiLogoutSuccess 
+                        ? (apiMessage ?? 'Logout successfully')
+                        : 'Logout successfully (local)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.successGreen,
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
         );
-        
-        // Small delay before navigation
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        Navigator.pushAndRemoveUntil(
-          context,
+      } catch (e) {
+        print('Error showing snackbar: $e');
+      }
+    }
+
+    // Wait briefly for message to appear, then navigate
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Always navigate to login screen - use global navigator key for reliable navigation
+    bool navigationSucceeded = false;
+    
+    // Primary approach: Use global navigator key (most reliable)
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false, // Remove all previous routes
+        );
+        navigationSucceeded = true;
+        print('Navigation successful using global navigator key');
+      }
+    } catch (e) {
+      print('Global navigator key error: $e');
+    }
+    
+    // Fallback 1: Try rootNavigator with context
+    if (!navigationSucceeded && context.mounted) {
+      try {
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false, // Remove all previous routes
+        );
+        navigationSucceeded = true;
+        print('Navigation successful using rootNavigator');
+      } catch (e) {
+        print('RootNavigator error: $e');
+      }
+    }
+    
+    // Fallback 2: Try without rootNavigator
+    if (!navigationSucceeded && context.mounted) {
+      try {
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
           (route) => false,
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoggingOut = false;
-        });
+        navigationSucceeded = true;
+        print('Navigation successful using standard navigator');
+      } catch (e) {
+        print('Standard navigator error: $e');
       }
     }
+    
+    // Fallback 3: Try pushReplacement as last resort
+    if (!navigationSucceeded && context.mounted) {
+      try {
+        Navigator.of(context, rootNavigator: true).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+        navigationSucceeded = true;
+        print('Navigation successful using pushReplacement');
+      } catch (e) {
+        print('PushReplacement error: $e');
+      }
+    }
+    
+    if (!navigationSucceeded) {
+      print('WARNING: All navigation methods failed. User may need to restart app.');
+    }
+    
+    // Reset state
+    if (mounted) {
+      setState(() {
+        _isLoggingOut = false;
+      });
+      _logoutLoadingNotifier.value = false;
+    }
+  }
+}
+
+// Separate widget for logout dialog to properly handle state updates
+class _LogoutDialog extends StatefulWidget {
+  final bool isLoggingOut;
+  final VoidCallback onLogout;
+  final VoidCallback onCancel;
+
+  const _LogoutDialog({
+    required this.isLoggingOut,
+    required this.onLogout,
+    required this.onCancel,
+  });
+
+  @override
+  State<_LogoutDialog> createState() => _LogoutDialogState();
+}
+
+class _LogoutDialogState extends State<_LogoutDialog> {
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.logout, color: Colors.red, size: 24),
+          const SizedBox(width: 12),
+          const Text('Logout'),
+        ],
+      ),
+      content: widget.isLoggingOut
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Logging out...',
+                  style: AppTextStyles.bodyMedium,
+                ),
+              ],
+            )
+          : Text(
+              'Are you sure you want to logout?',
+              style: AppTextStyles.bodyMedium,
+            ),
+      actions: widget.isLoggingOut
+          ? [] // No actions during logout
+          : [
+              TextButton(
+                onPressed: widget.onCancel,
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: widget.onLogout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+    );
   }
 }
 
