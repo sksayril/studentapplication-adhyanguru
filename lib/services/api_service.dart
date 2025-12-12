@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'https://7cvccltb-3023.inc1.devtunnels.ms';
+  static const String baseUrl = 'https://api.adhyan.guru';
   
   // Get Level Categories (Public - for signup)
   static Future<Map<String, dynamic>> getLevelCategories() async {
