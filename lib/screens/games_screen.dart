@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../utils/text_styles.dart';
+import 'math_quiz_game_screen.dart';
 
 class GamesScreen extends StatelessWidget {
   const GamesScreen({Key? key}) : super(key: key);
@@ -61,59 +62,51 @@ class GamesScreen extends StatelessWidget {
     final games = [
       {
         'title': 'Math Quiz',
-        'description': 'Test your math skills with fun challenges',
+        'description': 'Test your math skills',
         'players': '1.2K playing',
         'color': const Color(0xFF6C5CE7),
         'icon': Icons.calculate_outlined,
+        'difficulty': 'intermediate',
       },
       {
-        'title': 'Word Puzzle',
-        'description': 'Improve vocabulary with word games',
-        'players': '890 playing',
-        'color': const Color(0xFFFF9F43),
-        'icon': Icons.text_fields,
-      },
-      {
-        'title': 'Science Lab',
-        'description': 'Interactive science experiments',
-        'players': '650 playing',
+        'title': 'Advanced Math',
+        'description': 'Class 11+ level problems',
+        'players': '1.5K playing',
         'color': const Color(0xFF00B894),
-        'icon': Icons.science_outlined,
+        'icon': Icons.functions,
+        'difficulty': 'advanced',
       },
       {
-        'title': 'Geography Quest',
-        'description': 'Explore countries and capitals',
-        'players': '540 playing',
+        'title': 'Physics Challenge',
+        'description': 'Advanced physics problems',
+        'players': '850 playing',
+        'color': const Color(0xFF9B59B6),
+        'icon': Icons.science,
+        'difficulty': 'expert',
+      },
+      {
+        'title': 'Expert Math',
+        'description': 'Masters level mathematics',
+        'players': '650 playing',
         'color': const Color(0xFFE17055),
-        'icon': Icons.public,
+        'icon': Icons.calculate,
+        'difficulty': 'expert',
       },
       {
-        'title': 'Memory Match',
-        'description': 'Enhance your memory skills',
-        'players': '920 playing',
+        'title': 'Calculus Master',
+        'description': 'Advanced calculus problems',
+        'players': '540 playing',
         'color': const Color(0xFF0984E3),
-        'icon': Icons.extension_outlined,
+        'icon': Icons.trending_up,
+        'difficulty': 'expert',
       },
       {
-        'title': 'History Timeline',
-        'description': 'Learn about historical events',
-        'players': '430 playing',
-        'color': const Color(0xFFD63031),
-        'icon': Icons.history_edu,
-      },
-      {
-        'title': 'Chemistry Lab',
-        'description': 'Mix elements and learn reactions',
-        'players': '780 playing',
-        'color': const Color(0xFFFD79A8),
-        'icon': Icons.biotech_outlined,
-      },
-      {
-        'title': 'Physics Simulator',
-        'description': 'Understand physics concepts',
-        'players': '610 playing',
-        'color': const Color(0xFF6C5CE7),
-        'icon': Icons.rocket_launch_outlined,
+        'title': 'Algebra Pro',
+        'description': 'Complex algebraic equations',
+        'players': '420 playing',
+        'color': const Color(0xFF2D3436),
+        'icon': Icons.functions_outlined,
+        'difficulty': 'advanced',
       },
     ];
 
@@ -130,24 +123,39 @@ class GamesScreen extends StatelessWidget {
       itemBuilder: (context, index) {
         final game = games[index];
         return _buildGameCard(
+          context: context,
           title: game['title'] as String,
           description: game['description'] as String,
           players: game['players'] as String,
           color: game['color'] as Color,
           icon: game['icon'] as IconData,
+          difficulty: game['difficulty'] as String?,
         );
       },
     );
   }
 
   Widget _buildGameCard({
+    required BuildContext context,
     required String title,
     required String description,
     required String players,
     required Color color,
     required IconData icon,
+    String? difficulty,
   }) {
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MathQuizGameScreen(
+              difficulty: difficulty ?? 'intermediate',
+            ),
+          ),
+        );
+      },
+      child: Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -263,6 +271,7 @@ class GamesScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -217,8 +217,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   Widget _buildLogo() {
     return Container(
-      width: 120,
-      height: 120,
+      width: 180,
+      height: 180,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -230,26 +230,16 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.auto_stories,
-              size: 50,
-              color: AppColors.primary,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'AG',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Image.asset(
+            'assets/logo.png',
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+          ),
         ),
       ),
     );

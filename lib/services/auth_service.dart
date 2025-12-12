@@ -210,5 +210,29 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('class_id');
   }
+  
+  // Save selected board ID (for filtering subjects)
+  static Future<void> saveSelectedBoardId(String boardId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_board_id', boardId);
+  }
+  
+  // Get selected board ID
+  static Future<String?> getSelectedBoardId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('selected_board_id');
+  }
+  
+  // Save board ID with student ID for automatic detection
+  static Future<void> saveBoardForStudent(String studentId, String boardId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('board_for_student_$studentId', boardId);
+  }
+  
+  // Get board ID for specific student
+  static Future<String?> getBoardForStudent(String studentId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('board_for_student_$studentId');
+  }
 }
 

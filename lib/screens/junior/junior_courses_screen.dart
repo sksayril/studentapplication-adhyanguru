@@ -36,18 +36,64 @@ class _JuniorCoursesScreenState extends State<JuniorCoursesScreen> {
     try {
       final token = await AuthService.getToken();
       if (token != null && token.isNotEmpty) {
-        final response = await ApiService.getMySubjects(token);
+        // Get selected board ID from storage
+        String? selectedBoardId = await AuthService.getSelectedBoardId();
+        
+        // Get student ID for board storage
+        final userData = await AuthService.getUserData();
+        final studentId = userData?['studentId'] as String?;
+        
+        print('Loading subjects with board ID: $selectedBoardId');
+        
+        // Call API with boardId filter if available
+        final response = await ApiService.getMySubjects(
+          token,
+          boardId: selectedBoardId,
+        );
         
         if (mounted) {
           if (response['success'] == true && response['data'] != null) {
             final data = response['data'] as Map<String, dynamic>;
-            final subjects = data['subjects'] as List? ?? [];
+            // New API returns 'items' instead of 'subjects'
+            final subjects = data['items'] as List? ?? [];
+            
+            // Auto-detect board from API response if not already selected
+            String? detectedBoardId = selectedBoardId;
+            if (detectedBoardId == null && subjects.isNotEmpty) {
+              // Try to get board from first subject
+              final firstSubject = subjects[0] as Map<String, dynamic>?;
+              if (firstSubject != null && firstSubject['board'] != null) {
+                final board = firstSubject['board'] as Map<String, dynamic>?;
+                detectedBoardId = board?['_id'] as String?;
+                if (detectedBoardId != null && detectedBoardId.isNotEmpty) {
+                  print('Auto-detected board ID from first subject: $detectedBoardId');
+                  // Save detected board
+                  await AuthService.saveSelectedBoardId(detectedBoardId);
+                  if (studentId != null) {
+                    await AuthService.saveBoardForStudent(studentId, detectedBoardId);
+                  }
+                }
+              }
+            }
             
             setState(() {
-              _subjects = subjects
+              // Map and filter subjects
+              List<Map<String, dynamic>> mappedSubjects = subjects
                   .map((s) => s as Map<String, dynamic>)
                   .where((s) => s['isActive'] == true)
                   .toList();
+              
+              // Filter by board if board ID is available
+              if (detectedBoardId != null && detectedBoardId.isNotEmpty) {
+                mappedSubjects = mappedSubjects.where((subject) {
+                  final board = subject['board'] as Map<String, dynamic>?;
+                  final boardId = board?['_id'] as String?;
+                  return boardId == detectedBoardId;
+                }).toList();
+                print('Filtered subjects by board ID $detectedBoardId: ${mappedSubjects.length} subjects');
+              }
+              
+              _subjects = mappedSubjects;
               _isLoading = false;
             });
           } else {

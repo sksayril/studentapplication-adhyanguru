@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import '../utils/text_styles.dart';
 import '../utils/level_theme.dart';
@@ -10,6 +11,7 @@ import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
 import 'junior_home_screen.dart';
+import 'board_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -119,22 +121,36 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             print('No token found in login response');
           }
           
-          // Update level provider
+          // Update level provider based on UI field
           final levelProvider = Provider.of<LevelProvider>(context, listen: false);
-          if (userData['studentLevel'] != null) {
-            final level = userData['studentLevel'];
-            String levelName = '';
-            if (level is Map && level['name'] != null) {
-              levelName = level['name'].toString();
-            } else if (level is String) {
-              levelName = level;
-            }
-            if (levelName.isNotEmpty) {
-              levelName = levelName.substring(0, 1).toUpperCase() + 
-                         (levelName.length > 1 ? levelName.substring(1).toLowerCase() : '');
-              await levelProvider.setLevel(levelName);
+          
+          // Get UI value from response data (defaults to 1 if not present)
+          final ui = userData['ui'] as int? ?? 1;
+          
+          // Extract level category information if available
+          String? levelName;
+          if (userData['levelCategory'] != null) {
+            final levelCategory = userData['levelCategory'] as Map<String, dynamic>?;
+            if (levelCategory != null && levelCategory['categoryname'] != null) {
+              levelName = levelCategory['categoryname'].toString();
             }
           }
+          
+          // If no level category, determine level based on UI
+          if (levelName == null || levelName.isEmpty) {
+            levelName = ui == 1 ? 'Junior' : 'Senior';
+          }
+          
+          // Set level in provider
+          if (levelName.isNotEmpty) {
+            levelName = levelName.substring(0, 1).toUpperCase() + 
+                       (levelName.length > 1 ? levelName.substring(1).toLowerCase() : '');
+            await levelProvider.setLevel(levelName);
+          }
+          
+          // Save UI value to SharedPreferences for future reference
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('student_ui', ui);
           
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -144,24 +160,65 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           );
 
-          // Navigate to appropriate home screen based on level
-          final level = levelProvider.currentLevel;
-          Widget homeScreen;
-          if (level?.toLowerCase() == 'junior') {
-            homeScreen = const JuniorHomeScreen();
-          } else {
-            homeScreen = const HomeScreen();
+          // Check if board selection is needed
+          final selectedBoardId = await AuthService.getSelectedBoardId();
+          final studentId = userData['studentId'] as String?;
+          
+          // If no board is selected, navigate to board selection first
+          if (selectedBoardId == null || selectedBoardId.isEmpty) {
+            print('No board selected, navigating to board selection screen');
+            // Navigate to board selection screen
+            final boardId = await Navigator.push<String>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BoardSelectionScreen(
+                  selectedLevel: levelName ?? 'Primary',
+                ),
+              ),
+            );
+            
+            // If board was selected, save it
+            if (boardId != null && boardId.isNotEmpty && mounted) {
+              await AuthService.saveSelectedBoardId(boardId);
+              if (studentId != null) {
+                await AuthService.saveBoardForStudent(studentId, boardId);
+              }
+            }
           }
           
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => homeScreen),
-          );
+          // Navigate to appropriate home screen based on UI value
+          // UI 1 = Junior UI, UI 2 = Second UI (Senior/Intermediate)
+          if (mounted) {
+            Widget homeScreen;
+            if (ui == 1) {
+              homeScreen = const JuniorHomeScreen();
+            } else {
+              homeScreen = const HomeScreen();
+            }
+            
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => homeScreen),
+            );
+          }
         } else {
+          // Handle specific error cases
+          final message = response['message'] ?? 'Login failed';
+          final statusCode = response['statusCode'] as int?;
+          
+          // Show appropriate error message based on status code
+          String errorMessage = message;
+          if (statusCode == 401) {
+            errorMessage = 'Invalid email or password. Please try again.';
+          } else if (statusCode == 403) {
+            errorMessage = 'Your account is inactive. Please contact support.';
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response['message'] ?? 'Login failed'),
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

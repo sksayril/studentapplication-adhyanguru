@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import '../utils/text_styles.dart';
 import '../utils/level_theme.dart';
 import '../providers/level_provider.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../utils/education_level.dart';
+import 'home_screen.dart';
+import 'junior_home_screen.dart';
 
 class BoardSelectionScreen extends StatefulWidget {
   final String selectedLevel;
@@ -538,8 +543,48 @@ class _BoardSelectionScreenState extends State<BoardSelectionScreen> {
         top: false,
         child: ElevatedButton(
           onPressed: _selectedBoardId != null
-              ? () {
-                  Navigator.pop(context, _selectedBoardId);
+              ? () async {
+                  // Save selected board to storage
+                  if (_selectedBoardId != null) {
+                    await AuthService.saveSelectedBoardId(_selectedBoardId!);
+                    
+                    // Also save with student ID if available
+                    final userData = await AuthService.getUserData();
+                    final studentId = userData?['studentId'] as String?;
+                    if (studentId != null) {
+                      await AuthService.saveBoardForStudent(studentId, _selectedBoardId!);
+                    }
+                  }
+                  
+                  // Check if we can pop (if there's a previous route)
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, _selectedBoardId);
+                  } else {
+                    // If no previous route, navigate to appropriate home screen
+                    final prefs = await SharedPreferences.getInstance();
+                    final ui = prefs.getInt('student_ui');
+                    final level = prefs.getString('student_level') ?? 
+                                prefs.getString('education_level');
+                    
+                    Widget homeScreen;
+                    if (ui == 1) {
+                      homeScreen = const JuniorHomeScreen();
+                    } else if (ui == 2) {
+                      homeScreen = const HomeScreen();
+                    } else {
+                      // Fallback to level-based navigation
+                      if (level?.toLowerCase() == EducationLevel.junior.toLowerCase()) {
+                        homeScreen = const JuniorHomeScreen();
+                      } else {
+                        homeScreen = const HomeScreen();
+                      }
+                    }
+                    
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => homeScreen),
+                    );
+                  }
                 }
               : null,
           style: ElevatedButton.styleFrom(

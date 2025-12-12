@@ -3,39 +3,53 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'https://2z669fsq-3000.inc1.devtunnels.ms';
+  static const String baseUrl = 'https://7cvccltb-3023.inc1.devtunnels.ms';
   
+  // Get Level Categories (Public - for signup)
+  static Future<Map<String, dynamic>> getLevelCategories() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/level-categories');
+      
+      final response = await http.get(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+      );
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load level categories',
+          'data': [],
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': [],
+      };
+    }
+  }
+
   // Student Signup
   static Future<Map<String, dynamic>> signup({
     required String name,
     required String email,
     required String password,
-    required String studentLevel,
+    required String levelCategory,
     required String contactNumber,
     String? agentId,
-    String? boardId,
-    String? classId,
-    String? streamId,
-    String? degreeId,
+    String? subcategory,
+    int? ui,
     File? profileImage,
     List<Map<String, dynamic>>? addresses,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/students/signup');
-      
-      // Debug logging
-      print('=== API SERVICE SIGNUP CALLED ===');
-      print('Signup API - Class ID received: $classId');
-      print('Signup API - Class ID type: ${classId.runtimeType}');
-      print('Signup API - Class ID is null: ${classId == null}');
-      if (classId != null) {
-        print('Signup API - Class ID length: ${classId.length}');
-        print('Signup API - Class ID trimmed: ${classId.trim()}');
-        print('Signup API - Class ID trimmed isEmpty: ${classId.trim().isEmpty}');
-      }
-      print('Signup API - Board ID received: $boardId');
-      print('Signup API - Has profile image: ${profileImage != null}');
-      print('==================================');
       
       if (profileImage != null) {
         // Multipart request with image
@@ -43,65 +57,26 @@ class ApiService {
         request.fields['name'] = name;
         request.fields['email'] = email;
         request.fields['password'] = password;
-        request.fields['studentLevel'] = studentLevel;
+        request.fields['levelCategory'] = levelCategory;
+        request.fields['levelCategoryId'] = levelCategory; // Alias for levelCategory
         request.fields['contactNumber'] = contactNumber;
         
         if (agentId != null && agentId.isNotEmpty) {
           request.fields['agentId'] = agentId;
         }
         
-        // Send board as both 'board' and 'boardId' for compatibility
-        if (boardId != null && boardId.isNotEmpty) {
-          request.fields['board'] = boardId;
-          request.fields['boardId'] = boardId; // Also send as boardId for compatibility
+        if (subcategory != null && subcategory.isNotEmpty) {
+          request.fields['subcategory'] = subcategory;
+          request.fields['subcategoryId'] = subcategory; // Alias for subcategory
         }
         
-        // Send class ID as both 'class' and 'classId' for compatibility
-        // Always send if provided and not empty
-        if (classId != null && classId.trim().isNotEmpty) {
-          final trimmedClassId = classId.trim();
-          request.fields['class'] = trimmedClassId;
-          request.fields['classId'] = trimmedClassId; // Also send as classId for compatibility
-          print('Signup API (Multipart) - Added class ID to form fields: $trimmedClassId');
-        } else {
-          print('Signup API (Multipart) - Class ID is null or empty: $classId');
-        }
-        
-        // Send stream ID as both 'stream' and 'streamId' for compatibility (Intermediate)
-        if (streamId != null && streamId.trim().isNotEmpty) {
-          final trimmedStreamId = streamId.trim();
-          request.fields['stream'] = trimmedStreamId;
-          request.fields['streamId'] = trimmedStreamId;
-          print('Signup API (Multipart) - Added stream ID to form fields: $trimmedStreamId');
-        }
-        
-        // Send degree ID as both 'degree' and 'degreeId' for compatibility (Senior)
-        if (degreeId != null && degreeId.trim().isNotEmpty) {
-          final trimmedDegreeId = degreeId.trim();
-          request.fields['degree'] = trimmedDegreeId;
-          request.fields['degreeId'] = trimmedDegreeId;
-          print('Signup API (Multipart) - Added degree ID to form fields: $trimmedDegreeId');
+        if (ui != null) {
+          request.fields['ui'] = ui.toString();
         }
         
         if (addresses != null && addresses.isNotEmpty) {
           request.fields['addresses'] = jsonEncode(addresses);
         }
-        
-        // Debug: Print all form fields before sending
-        print('=== MULTIPART REQUEST FIELDS ===');
-        print('Form fields keys: ${request.fields.keys.toList()}');
-        print('Form fields: ${request.fields}');
-        if (request.fields.containsKey('class')) {
-          print('class field value: ${request.fields['class']}');
-        } else {
-          print('class field: NOT FOUND');
-        }
-        if (request.fields.containsKey('classId')) {
-          print('classId field value: ${request.fields['classId']}');
-        } else {
-          print('classId field: NOT FOUND');
-        }
-        print('===============================');
         
         // Add profile image
         var imageFile = await http.MultipartFile.fromPath(
@@ -116,36 +91,19 @@ class ApiService {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
         // JSON request without image
-        // Build request body
         final requestBody = <String, dynamic>{
           'name': name,
           'email': email,
           'password': password,
-          'studentLevel': studentLevel,
+          'levelCategory': levelCategory,
+          'levelCategoryId': levelCategory, // Alias for levelCategory
           'contactNumber': contactNumber,
           if (agentId != null && agentId.isNotEmpty) 'agentId': agentId,
-          // Send board as both 'board' and 'boardId' for compatibility
-          if (boardId != null && boardId.isNotEmpty) 'board': boardId,
-          if (boardId != null && boardId.isNotEmpty) 'boardId': boardId,
-          // Send class ID as both 'class' and 'classId' for compatibility
-          if (classId != null && classId.trim().isNotEmpty) 'class': classId.trim(),
-          if (classId != null && classId.trim().isNotEmpty) 'classId': classId.trim(),
-          // Send stream ID as both 'stream' and 'streamId' for compatibility (Intermediate)
-          if (streamId != null && streamId.trim().isNotEmpty) 'stream': streamId.trim(),
-          if (streamId != null && streamId.trim().isNotEmpty) 'streamId': streamId.trim(),
-          // Send degree ID as both 'degree' and 'degreeId' for compatibility (Senior)
-          if (degreeId != null && degreeId.trim().isNotEmpty) 'degree': degreeId.trim(),
-          if (degreeId != null && degreeId.trim().isNotEmpty) 'degreeId': degreeId.trim(),
+          if (subcategory != null && subcategory.isNotEmpty) 'subcategory': subcategory,
+          if (subcategory != null && subcategory.isNotEmpty) 'subcategoryId': subcategory, // Alias
+          if (ui != null) 'ui': ui,
           if (addresses != null && addresses.isNotEmpty) 'addresses': addresses,
         };
-        
-        // Debug: Print request body
-        print('Signup API (JSON) - Request body keys: ${requestBody.keys.toList()}');
-        if (classId != null && classId.trim().isNotEmpty) {
-          print('Signup API (JSON) - Sending class ID: ${classId.trim()}');
-        } else {
-          print('Signup API (JSON) - Class ID is null or empty: $classId');
-        }
         
         final response = await http.post(
           uri,
@@ -180,11 +138,17 @@ class ApiService {
         }),
       );
       
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      // Include status code in response for error handling
+      responseData['statusCode'] = response.statusCode;
+      
+      return responseData;
     } catch (e) {
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
+        'statusCode': 0,
       };
     }
   }
@@ -641,15 +605,33 @@ class ApiService {
 
   // Get My Subjects (Protected)
   // Method: GET
-  // URL: /api/students/my-subjects
+  // URL: /api/students/my-subjects-list
   // Authentication required - Bearer token in Authorization header
-  static Future<Map<String, dynamic>> getMySubjects(String token) async {
+  // Query Parameters: page, limit, isActive, subcategoryId, boardId
+  static Future<Map<String, dynamic>> getMySubjects(
+    String token, {
+    int? page,
+    int? limit,
+    bool? isActive,
+    String? subcategoryId,
+    String? boardId,
+  }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/students/my-subjects');
+      // Build query parameters
+      final queryParams = <String, String>{};
+      if (page != null) queryParams['page'] = page.toString();
+      if (limit != null) queryParams['limit'] = limit.toString();
+      if (isActive != null) queryParams['isActive'] = isActive.toString();
+      if (subcategoryId != null) queryParams['subcategoryId'] = subcategoryId;
+      if (boardId != null) queryParams['boardId'] = boardId;
+
+      final uri = Uri.parse('$baseUrl/api/students/my-subjects-list')
+          .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
       
       print('=== API Service: getMySubjects ===');
       print('URL: $uri');
       print('Method: GET');
+      print('Query Parameters: $queryParams');
       print('Headers: Authorization: Bearer ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
       
       final response = await http.get(
@@ -681,14 +663,86 @@ class ApiService {
         return {
           'success': false,
           'message': responseBody['message'] ?? 'Failed to load subjects',
-          'data': {'subjects': []},
+          'data': {
+            'items': [],
+            'student': null,
+            'pagination': {
+              'page': 1,
+              'limit': 20,
+              'total': 0,
+              'pages': 0,
+            },
+          },
         };
       }
     } catch (e) {
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
-        'data': {'subjects': []},
+        'data': {
+          'items': [],
+          'student': null,
+          'pagination': {
+            'page': 1,
+            'limit': 20,
+            'total': 0,
+            'pages': 0,
+          },
+        },
+      };
+    }
+  }
+
+  // Get Subject Full Data by ID (Protected - Token Based)
+  // Method: GET
+  // URL: /api/students/subjects/:subjectId
+  // Authentication required - Bearer token in Authorization header
+  // Returns complete subject information including all chapters, syllabi, and completion status
+  static Future<Map<String, dynamic>> getSubjectById(String token, String subjectId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/students/subjects/$subjectId');
+      
+      print('=== API Service: getSubjectById ===');
+      print('URL: $uri');
+      print('Method: GET');
+      print('Subject ID: $subjectId');
+      print('Headers: Authorization: Bearer ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Subject not found',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load subject',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
       };
     }
   }
@@ -1007,6 +1061,413 @@ class ApiService {
         'success': false,
         'message': 'Network error: ${e.toString()}',
         'data': {'hasActiveSubscription': false},
+      };
+    }
+  }
+
+  // Enroll in Course (Protected)
+  // Method: POST
+  // URL: /api/student/courses/{courseId}/enroll
+  // Authentication required - Bearer token in Authorization header
+  static Future<Map<String, dynamic>> enrollInCourse(
+    String token,
+    String courseId,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/$courseId/enroll');
+      
+      print('=== API Service: enrollInCourse ===');
+      print('URL: $uri');
+      print('Method: POST');
+      print('Course ID: $courseId');
+      
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else if (response.statusCode == 400 || response.statusCode == 403) {
+        // Handle subscription requirement
+        final requiresSubscription = responseBody['requiresSubscription'] as bool? ?? false;
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Invalid request. You may already be enrolled.',
+          'requiresSubscription': requiresSubscription,
+          'details': responseBody['details'] as String?,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to enroll in course',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Get Courses with Filters (Protected)
+  // Method: GET
+  // URL: /api/student/courses/filters
+  // Authentication required - Bearer token in Authorization header
+  // Query Parameters: page, limit, sort, level (junior/intermediate/senior)
+  static Future<Map<String, dynamic>> getCoursesWithFilters(
+    String token, {
+    int page = 1,
+    int limit = 12,
+    String sort = 'rating',
+    String? level,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+        'sort': sort,
+      };
+      
+      if (level != null && level.isNotEmpty) {
+        queryParams['level'] = level;
+      }
+      
+      final uri = Uri.parse('$baseUrl/api/student/courses/filters').replace(
+        queryParameters: queryParams,
+      );
+      
+      print('=== API Service: getCoursesWithFilters ===');
+      print('URL: $uri');
+      print('Method: GET');
+      print('Level filter: $level');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+          'data': {'items': [], 'pagination': {}},
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load courses',
+          'data': {'items': [], 'pagination': {}},
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': {'items': [], 'pagination': {}},
+      };
+    }
+  }
+
+  // Get Courses with Progress (Protected)
+  // Method: GET
+  // URL: /api/student/courses/with-progress
+  // Authentication required - Bearer token in Authorization header
+  // Query Parameters: page, limit
+  static Future<Map<String, dynamic>> getCoursesWithProgress(
+    String token, {
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/with-progress').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+      
+      print('=== API Service: getCoursesWithProgress ===');
+      print('URL: $uri');
+      print('Method: GET');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+          'data': {'items': [], 'pagination': {}},
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load courses',
+          'data': {'items': [], 'pagination': {}},
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': {'items': [], 'pagination': {}},
+      };
+    }
+  }
+
+  // Get Course Details (Protected)
+  // Method: GET
+  // URL: /api/student/courses/{courseId}
+  // Authentication required - Bearer token in Authorization header
+  static Future<Map<String, dynamic>> getCourseDetails(
+    String token,
+    String courseId,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/$courseId');
+      
+      print('=== API Service: getCourseDetails ===');
+      print('URL: $uri');
+      print('Method: GET');
+      print('Course ID: $courseId');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Course not found',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load course details',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Get Course Progress (Protected)
+  // Method: GET
+  // URL: /api/student/courses/{courseId}/progress
+  // Authentication required - Bearer token in Authorization header
+  static Future<Map<String, dynamic>> getCourseProgress(
+    String token,
+    String courseId,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/$courseId/progress');
+      
+      print('=== API Service: getCourseProgress ===');
+      print('URL: $uri');
+      print('Method: GET');
+      print('Course ID: $courseId');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Course progress not found',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load course progress',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Mark Lesson as Complete (Protected)
+  // Method: POST
+  // URL: /api/student/courses/{courseId}/progress
+  // Authentication required - Bearer token in Authorization header
+  // Body: { "lessonId": "...", "completed": true }
+  static Future<Map<String, dynamic>> markLessonComplete(
+    String token,
+    String courseId,
+    String lessonId,
+    bool completed,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/$courseId/progress');
+      
+      print('=== API Service: markLessonComplete ===');
+      print('URL: $uri');
+      print('Method: POST');
+      print('Course ID: $courseId');
+      print('Lesson ID: $lessonId');
+      print('Completed: $completed');
+      
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'lessonId': lessonId,
+          'completed': completed,
+        }),
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Course or lesson not found',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to mark lesson as complete',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Get Dashboard Data (Protected)
+  // Method: GET
+  // URL: /api/student/courses/dashboard
+  // Authentication required - Bearer token in Authorization header
+  static Future<Map<String, dynamic>> getDashboard(String token) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/courses/dashboard');
+      
+      print('=== API Service: getDashboard ===');
+      print('URL: $uri');
+      print('Method: GET');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      final responseBody = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      if (response.statusCode == 200) {
+        return responseBody;
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Unauthorized. Please login again.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Failed to load dashboard data',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
       };
     }
   }

@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../utils/colors.dart';
 import '../../utils/text_styles.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/skeleton_loader.dart';
 
 class SubjectDetailsScreen extends StatefulWidget {
@@ -27,58 +28,87 @@ class SubjectDetailsScreen extends StatefulWidget {
 
 class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
   List<Map<String, dynamic>> _chapters = [];
+  List<Map<String, dynamic>> _syllabi = [];
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _subjectInfo;
+  Map<String, dynamic>? _completionInfo;
 
   @override
   void initState() {
     super.initState();
-    // If chapters are provided, use them directly; otherwise fetch from API
-    if (widget.chapters != null && widget.chapters!.isNotEmpty) {
-      _chapters = widget.chapters!;
-      _isLoading = false;
-      // Sort chapters by order if available
-      _chapters.sort((a, b) {
-        final orderA = a['order'] as int? ?? 0;
-        final orderB = b['order'] as int? ?? 0;
-        return orderA.compareTo(orderB);
-      });
-    } else {
-      _loadChapters();
-    }
+    // Always fetch full subject data using the protected API
+    _loadSubjectData();
   }
 
-  Future<void> _loadChapters() async {
+  Future<void> _loadSubjectData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final response = await ApiService.getChaptersBySubjectId(widget.subjectId);
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Not authenticated. Please login again.';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      print('Loading full subject data for ID: ${widget.subjectId}');
+      final response = await ApiService.getSubjectById(token, widget.subjectId);
       
       if (mounted) {
         if (response['success'] == true && response['data'] != null) {
           final data = response['data'] as Map<String, dynamic>;
-          final chapters = data['chapters'] as List? ?? [];
-          _subjectInfo = data['subject'] as Map<String, dynamic>?;
+          final subject = data['subject'] as Map<String, dynamic>?;
+          final completion = data['completion'] as Map<String, dynamic>?;
           
-          setState(() {
-            // Sort chapters by order if available
-            _chapters = chapters
-                .map((c) => c as Map<String, dynamic>)
-                .toList()
-              ..sort((a, b) {
-                final orderA = a['order'] as int? ?? 0;
-                final orderB = b['order'] as int? ?? 0;
-                return orderA.compareTo(orderB);
-              });
-            _isLoading = false;
-          });
+          if (subject != null) {
+            final chapters = subject['chapters'] as List? ?? [];
+            final syllabi = subject['syllabi'] as List? ?? [];
+            
+            setState(() {
+              _subjectInfo = subject;
+              _completionInfo = completion;
+              
+              // Sort chapters by order if available
+              _chapters = chapters
+                  .map((c) => c as Map<String, dynamic>)
+                  .toList()
+                ..sort((a, b) {
+                  final orderA = a['order'] as int? ?? 0;
+                  final orderB = b['order'] as int? ?? 0;
+                  return orderA.compareTo(orderB);
+                });
+              
+              // Sort syllabi by order if available
+              _syllabi = syllabi
+                  .map((s) => s as Map<String, dynamic>)
+                  .toList()
+                ..sort((a, b) {
+                  final orderA = a['order'] as int? ?? 0;
+                  final orderB = b['order'] as int? ?? 0;
+                  return orderA.compareTo(orderB);
+                });
+              
+              _isLoading = false;
+            });
+            
+            print('Subject data loaded: ${_chapters.length} chapters, ${_syllabi.length} syllabi');
+          } else {
+            setState(() {
+              _errorMessage = 'Subject data not found';
+              _isLoading = false;
+            });
+          }
         } else {
           setState(() {
-            _errorMessage = response['message'] ?? 'Failed to load chapters';
+            _errorMessage = response['message'] ?? 'Failed to load subject data';
             _isLoading = false;
           });
         }
@@ -86,11 +116,16 @@ class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error loading chapters: ${e.toString()}';
+          _errorMessage = 'Error loading subject data: ${e.toString()}';
           _isLoading = false;
         });
       }
     }
+  }
+  
+  // Keep old method name for backward compatibility with RefreshIndicator
+  Future<void> _loadChapters() async {
+    await _loadSubjectData();
   }
 
   Future<void> _launchUrl(String url) async {
@@ -146,14 +181,14 @@ class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadChapters,
+        onRefresh: _loadSubjectData,
         child: _isLoading
             ? _buildLoadingState()
             : _errorMessage != null
                 ? _buildErrorState()
-                : _chapters.isEmpty
+                : _chapters.isEmpty && _syllabi.isEmpty
                     ? _buildEmptyState()
-                    : _buildChaptersList(),
+                    : _buildContent(),
       ),
     );
   }
@@ -218,7 +253,7 @@ class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: _loadChapters,
+                  onPressed: _loadSubjectData,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.subjectColor,
                     foregroundColor: Colors.white,
@@ -380,7 +415,7 @@ class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
     );
   }
 
-  Widget _buildChaptersList() {
+  Widget _buildContent() {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
@@ -388,39 +423,347 @@ class _SubjectDetailsScreenState extends State<SubjectDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSubjectHeader(),
-          const SizedBox(height: 24),
+          
+          // Completion Status Card
+          if (_completionInfo != null) ...[
+            const SizedBox(height: 24),
+            _buildCompletionCard(),
+          ],
+          
+          // Chapters Section
+          if (_chapters.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: widget.subjectColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Chapters (${_chapters.length})',
+                  style: AppTextStyles.heading2.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1F2937),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ..._chapters.asMap().entries.map((entry) {
+              final index = entry.key;
+              final chapter = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildChapterCard(chapter, index + 1),
+              );
+            }).toList(),
+          ],
+          
+          // Syllabi Section
+          if (_syllabi.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: widget.subjectColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Syllabi (${_syllabi.length})',
+                  style: AppTextStyles.heading2.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1F2937),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ..._syllabi.asMap().entries.map((entry) {
+              final index = entry.key;
+              final syllabus = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildSyllabusCard(syllabus, index + 1),
+              );
+            }).toList(),
+          ],
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCompletionCard() {
+    final progressPercentage = _completionInfo?['progressPercentage'] as int? ?? 0;
+    final isCompleted = _completionInfo?['isCompleted'] as bool? ?? false;
+    final completedChapters = _completionInfo?['completedChapters'] as int? ?? 0;
+    final totalChapters = _completionInfo?['totalChapters'] as int? ?? 0;
+    final completedSyllabi = _completionInfo?['completedSyllabi'] as int? ?? 0;
+    final totalSyllabi = _completionInfo?['totalSyllabi'] as int? ?? 0;
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            widget.subjectColor.withOpacity(0.1),
+            widget.subjectColor.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: widget.subjectColor.withOpacity(0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 4,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: widget.subjectColor,
-                  borderRadius: BorderRadius.circular(2),
+              Text(
+                'Progress',
+                style: AppTextStyles.heading3.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Chapters',
-                style: AppTextStyles.heading2.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1F2937),
-                  letterSpacing: -0.5,
+              if (isCompleted)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Completed',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progressPercentage / 100,
+              minHeight: 12,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(widget.subjectColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$progressPercentage% Complete',
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+              color: widget.subjectColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'Chapters',
+                  '$completedChapters / $totalChapters',
+                  Icons.book_outlined,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                  'Syllabi',
+                  '$completedSyllabi / $totalSyllabi',
+                  Icons.description_outlined,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ..._chapters.asMap().entries.map((entry) {
-            final index = entry.key;
-            final chapter = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildChapterCard(chapter, index + 1),
-            );
-          }).toList(),
-          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: widget.subjectColor.withOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: widget.subjectColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSyllabusCard(Map<String, dynamic> syllabus, int syllabusNumber) {
+    final title = syllabus['title'] as String? ?? 'Untitled Syllabus';
+    final description = syllabus['description'] as String?;
+    final content = syllabus['content'] as String?;
+    final isCompleted = syllabus['isCompleted'] as bool? ?? false;
+    
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isCompleted 
+              ? Colors.green.withOpacity(0.3)
+              : widget.subjectColor.withOpacity(0.1),
+          width: isCompleted ? 2 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: widget.subjectColor.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      isCompleted ? Colors.green : _getDeeperColor(widget.subjectColor),
+                      isCompleted ? Colors.green.withOpacity(0.8) : _getDeeperColor(widget.subjectColor).withOpacity(0.9),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(Icons.check, color: Colors.white, size: 24)
+                      : Text(
+                          '$syllabusNumber',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.heading3.copyWith(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                    if (description != null && description.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        description,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: const Color(0xFF6B7280),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (content != null && content.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    widget.subjectColor.withOpacity(0.08),
+                    widget.subjectColor.withOpacity(0.03),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                content.length > 200 ? '${content.substring(0, 200)}...' : content,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

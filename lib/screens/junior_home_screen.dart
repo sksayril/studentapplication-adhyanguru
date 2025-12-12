@@ -36,6 +36,8 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
   bool _isLoadingSubjects = true;
   String? _subjectsErrorMessage;
   Map<String, dynamic>? _classInfo;
+  String? _categoryName;
+  String? _subcategoryName;
   List<Map<String, dynamic>> _recentQuizResults = [];
   bool _isLoadingQuizResults = true;
   Map<String, dynamic>? _quizStatistics;
@@ -66,11 +68,23 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
             _profileImageUrl = cachedData['profileImage'] as String?;
           });
         }
-        // Load class info from cache
+        // Load class info, category, and subcategory from cache
         if (cachedData['class'] != null) {
           final classData = cachedData['class'] as Map<String, dynamic>;
           setState(() {
             _classInfo = classData;
+          });
+        }
+        if (cachedData['levelCategory'] != null) {
+          final levelCategory = cachedData['levelCategory'] as Map<String, dynamic>;
+          setState(() {
+            _categoryName = levelCategory['categoryname'] as String?;
+          });
+        }
+        if (cachedData['subcategory'] != null) {
+          final subcategory = cachedData['subcategory'] as Map<String, dynamic>;
+          setState(() {
+            _subcategoryName = subcategory['subcategoryname'] as String?;
           });
         }
       }
@@ -88,6 +102,15 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
               if (profileData['class'] != null) {
                 _classInfo = profileData['class'] as Map<String, dynamic>;
               }
+              // Extract category and subcategory information
+              if (profileData['levelCategory'] != null) {
+                final levelCategory = profileData['levelCategory'] as Map<String, dynamic>;
+                _categoryName = levelCategory['categoryname'] as String?;
+              }
+              if (profileData['subcategory'] != null) {
+                final subcategory = profileData['subcategory'] as Map<String, dynamic>;
+                _subcategoryName = subcategory['subcategoryname'] as String?;
+              }
             });
             // Save updated data including class info
             await AuthService.saveUserData(profileData);
@@ -101,11 +124,21 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
     } catch (e) {
       // Silently fail - use cached data if available
       print('Error loading profile image: $e');
-      // Try to load class info from AuthService
-      final classInfo = await AuthService.getClassInfo();
-      if (classInfo != null && mounted) {
+      // Try to load class info and category/subcategory from cached data
+      final cachedData = await AuthService.getUserData();
+      if (cachedData != null && mounted) {
         setState(() {
-          _classInfo = classInfo;
+          if (cachedData['class'] != null) {
+            _classInfo = cachedData['class'] as Map<String, dynamic>;
+          }
+          if (cachedData['levelCategory'] != null) {
+            final levelCategory = cachedData['levelCategory'] as Map<String, dynamic>;
+            _categoryName = levelCategory['categoryname'] as String?;
+          }
+          if (cachedData['subcategory'] != null) {
+            final subcategory = cachedData['subcategory'] as Map<String, dynamic>;
+            _subcategoryName = subcategory['subcategoryname'] as String?;
+          }
         });
       }
     }
@@ -427,18 +460,64 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
     try {
       final token = await AuthService.getToken();
       if (token != null && token.isNotEmpty) {
-        final response = await ApiService.getMySubjects(token);
+        // Get selected board ID from storage
+        String? selectedBoardId = await AuthService.getSelectedBoardId();
+        
+        // Get student ID for board storage
+        final userData = await AuthService.getUserData();
+        final studentId = userData?['studentId'] as String?;
+        
+        print('Loading subjects with board ID: $selectedBoardId');
+        
+        // Call API with boardId filter if available
+        final response = await ApiService.getMySubjects(
+          token,
+          boardId: selectedBoardId,
+        );
         
         if (mounted) {
           if (response['success'] == true && response['data'] != null) {
             final data = response['data'] as Map<String, dynamic>;
-            final subjects = data['subjects'] as List? ?? [];
+            // New API returns 'items' instead of 'subjects'
+            final subjects = data['items'] as List? ?? [];
+            
+            // Auto-detect board from API response if not already selected
+            String? detectedBoardId = selectedBoardId;
+            if (detectedBoardId == null && subjects.isNotEmpty) {
+              // Try to get board from first subject
+              final firstSubject = subjects[0] as Map<String, dynamic>?;
+              if (firstSubject != null && firstSubject['board'] != null) {
+                final board = firstSubject['board'] as Map<String, dynamic>?;
+                detectedBoardId = board?['_id'] as String?;
+                if (detectedBoardId != null && detectedBoardId.isNotEmpty) {
+                  print('Auto-detected board ID from first subject: $detectedBoardId');
+                  // Save detected board
+                  await AuthService.saveSelectedBoardId(detectedBoardId);
+                  if (studentId != null) {
+                    await AuthService.saveBoardForStudent(studentId, detectedBoardId);
+                  }
+                }
+              }
+            }
             
             setState(() {
-              _subjects = subjects
+              // Map and filter subjects
+              List<Map<String, dynamic>> mappedSubjects = subjects
                   .map((s) => s as Map<String, dynamic>)
                   .where((s) => s['isActive'] == true)
                   .toList();
+              
+              // Filter by board if board ID is available
+              if (detectedBoardId != null && detectedBoardId.isNotEmpty) {
+                mappedSubjects = mappedSubjects.where((subject) {
+                  final board = subject['board'] as Map<String, dynamic>?;
+                  final boardId = board?['_id'] as String?;
+                  return boardId == detectedBoardId;
+                }).toList();
+                print('Filtered subjects by board ID $detectedBoardId: ${mappedSubjects.length} subjects');
+              }
+              
+              _subjects = mappedSubjects;
               _isLoadingSubjects = false;
             });
           } else {
@@ -688,8 +767,8 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
             ),
           ],
         ),
-        // Class Information Display
-        if (_classInfo != null) ...[
+        // Category and Subcategory Information Display
+        if (_categoryName != null || _subcategoryName != null || _classInfo != null) ...[
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -715,7 +794,7 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.school,
+                    Icons.category,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -725,24 +804,36 @@ class _JuniorHomeScreenState extends State<JuniorHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _classInfo!['name'] as String? ?? 'Class',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1F2937),
-                        ),
-                      ),
-                      if (_classInfo!['description'] != null)
+                      if (_categoryName != null)
                         Text(
-                          _classInfo!['description'] as String,
+                          _categoryName!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      if (_subcategoryName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _subcategoryName!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                      if (_classInfo != null && _classInfo!['name'] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _classInfo!['name'] as String,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
                     ],
                   ),
                 ),
